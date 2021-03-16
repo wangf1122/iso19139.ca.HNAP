@@ -329,10 +329,10 @@
       <xsl:variable name="listOfKeywords">{
         <xsl:variable name="keywordWithNoThesaurus"
                       select="//gmd:MD_Keywords[
-                                not(gmd:thesaurusName) or gmd:thesaurusName/*/gmd:title/*/text() = '']/
+                                not(gmd:thesaurusName) or gmd:thesaurusName/*/gmd:title/(gco:CharacterString|gmx:Anchor)/text() = '']/
                                   gmd:keyword[*/text() != '']"/>
-        <xsl:for-each-group select="//gmd:MD_Keywords[gmd:thesaurusName/*/gmd:title/*/text() != '']"
-                            group-by="gmd:thesaurusName/*/gmd:title/*/text()">
+        <xsl:for-each-group select="//gmd:MD_Keywords[gmd:thesaurusName/*/gmd:title/(gco:CharacterString|gmx:Anchor)/text() != '']"
+                            group-by="gmd:thesaurusName/*/gmd:title/(gco:CharacterString|gmx:Anchor)/text()">
           '<xsl:value-of select="replace(current-grouping-key(), '''', '\\''')"/>' :[
           <xsl:for-each select="current-group()/gmd:keyword/(gco:CharacterString|gmx:Anchor)">
             {'value': <xsl:value-of select="concat('''', replace(., '''', '\\'''), '''')"/>,
@@ -406,6 +406,8 @@
         <xsl:when test="gmd:resourceConstraints/gmd:MD_SecurityConstraints">
           <Field name="secConstr" string="true" store="true" index="true"/>
           <Field name="secUserNote" string="{gmd:resourceConstraints/gmd:MD_SecurityConstraints[1]/gmd:userNote/gco:CharacterString}" store="true" index="true"/>
+          <!-- put secUserNote in MD_SecurityConstraintsUseLimitation so that it can be displayed on the view page -->
+          <Field name="MD_SecurityConstraintsUseLimitation" string="{gmd:resourceConstraints/gmd:MD_SecurityConstraints[1]/gmd:userNote/gco:CharacterString}" store="true" index="true"/>
         </xsl:when>
         <xsl:otherwise>
           <Field name="secConstr" string="false" store="true" index="true"/>

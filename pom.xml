@@ -4,30 +4,29 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <parent>
     <artifactId>schemas</artifactId>
-    <groupId>org.geonetwork-opensource</groupId>
-    <version>3.7</version>
-    <!-- tested with 3.10.6-SNAPSHOT -->
+    <groupId>org.geonetwork-opensource.schemas</groupId>
+    <version>3.10-SNAPSHOT</version>
   </parent>
   <modelVersion>4.0.0</modelVersion>
-
+  <version>3.10-SNAPSHOT</version>
   <artifactId>schema-iso19139.ca.HNAP</artifactId>
   <name>Schema Plugin HNAP ISO19139/119</name>
-  <version>3.10.6-SNAPSHOT</version>
+
   <description>
      GeoNetwork schema plugin for HNAP ISO19139/119 standard
   </description>
 
   <dependencies>
     <dependency>
-      <groupId>${project.groupId}</groupId>
+      <groupId>org.geonetwork-opensource.schemas</groupId>
       <artifactId>schema-core</artifactId>
-      <version>3.7</version>
+      <version>${project.parent.version}</version>
       <scope>provided</scope>
     </dependency>
     <dependency>
-     <groupId>${project.groupId}</groupId>
+     <groupId>org.geonetwork-opensource</groupId>
      <artifactId>core</artifactId>
-     <version>${gn.project.version}</version>
+     <version>${project.parent.version}</version>
      <scope>provided</scope>
     </dependency>
     <dependency>
@@ -46,16 +45,16 @@
       <scope>provided</scope>
     </dependency>
     <dependency>
-      <groupId>${project.groupId}</groupId>
+      <groupId>org.geonetwork-opensource</groupId>
       <artifactId>common</artifactId>
-      <version>${gn.project.version}</version>
+      <version>${project.parent.version}</version>
       <scope>provided</scope>
     </dependency>
     <!-- test scope -->
     <dependency>
-      <groupId>${project.groupId}</groupId>
+      <groupId>org.geonetwork-opensource.schemas</groupId>
       <artifactId>schema-core</artifactId>
-      <version>3.7</version>
+      <version>${project.parent.version}</version>
       <type>test-jar</type>
       <scope>test</scope>
     </dependency>
@@ -145,6 +144,7 @@
         </plugins>
       </build>
     </profile>
+
     <profile>
       <id>docs</id>
       <build>
@@ -153,32 +153,67 @@
             <artifactId>maven-antrun-plugin</artifactId>
             <executions>
               <execution>
+                <id>sphinx</id>
                 <phase>compile</phase>
                 <configuration>
 <target>
    <property name="sphinx_build_options"
-             value="-q -N -W --keep-going -n -j auto"/>
+             value="-N -W --keep-going -n -j auto"/>
    <property name="theme"
              value="sphinx_rtd_theme"/>
    <property name="doctrees"
              value="target/doctrees"/>
-   <property name="outputdir"
-             value="target/html"/>
    <property name="srcdir"
              value="src/sphinx"/>
 
-   <mkdir dir="${outputdir}"/>
+   <property name="en"
+             value="target/html"/>
+
+   <mkdir dir="${en}"/>
    <exec executable="sphinx-build" failonerror="true">
      <arg line="${sphinx_build_options}"/>
      <arg line="-b html"/>
      <arg line="-Dhtml_theme=${theme}"/>
-     <arg line="-d ${doctrees}"/>
+     <arg line="-d"/>
+     <arg path="${doctrees}"/>
      <arg path="${srcdir}"/>
-     <arg path="${outputdir}"/>
+     <arg path="${en}"/>
+   </exec>
+
+   <property name="fr"
+             value="target/html/fr"/>
+   <mkdir dir="${fr}"/>
+   <exec executable="sphinx-build" failonerror="true">
+     <arg line="${sphinx_build_options}"/>
+     <arg line="-b html"/>
+     <arg line="-Dhtml_theme=${theme}"/>
+     <arg line="-Dlanguage=fr"/>
+     <arg line="-d"/>
+     <arg path="${doctrees}"/>
+     <arg path="${srcdir}"/>
+     <arg path="${fr}"/>
    </exec>
 </target>
                 </configuration>
                 <goals><goal>run</goal></goals>
+              </execution>
+            </executions>
+          </plugin>
+          <plugin>
+            <artifactId>maven-assembly-plugin</artifactId>
+            <executions>
+              <execution>
+                <id>docs-assembly</id>
+                <phase>package</phase>
+                <goals><goal>single</goal></goals>
+                <inherited>false</inherited>
+                <configuration>
+                 <appendAssemblyId>false</appendAssemblyId>
+                 <descriptors>
+                  <descriptor>src/assembly/docs.xml</descriptor>
+                 </descriptors>
+                 <finalName>${project.build.finalName}-doc</finalName>
+                </configuration>
               </execution>
             </executions>
           </plugin>
@@ -206,5 +241,46 @@
         </plugins>
       </build>
     </profile>
+
+    <profile>
+      <id>translate</id>
+      <build>
+        <plugins>
+          <plugin>
+            <artifactId>maven-antrun-plugin</artifactId>
+            <executions>
+              <execution>
+                <id>gettext</id>
+                <phase>compile</phase>
+                <configuration>
+<target>
+   <property name="srcdir"
+             value="src/sphinx"/>
+   <property name="gettext"
+             value="target/gettext"/>
+   <mkdir dir="${outputdir}"/>
+   <exec executable="sphinx-build" failonerror="true">
+     <arg line="-b gettext"/>
+     <arg path="${srcdir}"/>
+     <arg path="${gettext}"/>
+   </exec>
+
+   <exec executable="sphinx-intl" failonerror="true">
+     <arg line="-c"/>
+     <arg path="${srcdir}/conf.py"/>
+     <arg line="update -p"/>
+     <arg path="${gettext}"/>
+     <arg line="-l fr"/>
+   </exec>
+</target>
+                </configuration>
+                <goals><goal>run</goal></goals>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
   </profiles>
+
 </project>
