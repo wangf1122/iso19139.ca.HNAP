@@ -2,7 +2,7 @@
 
 The Canadian GeoNetwork community is pleased share the *ISO Harmonized North American Profile (HNAP)* schema plugin. This is a bilingual extension of the *North American Profile of ISO 19115:2003 - Geographic information - Metadata* used nationally.
 
-For details on this release see [3.7.0 Milestone](https://github.com/metadata101/iso19139.ca.HNAP/milestone/4?closed=1) release notes for details.
+For details on this release see [3.10.11 Milestone](https://github.com/metadata101/iso19139.ca.HNAP/milestone/10?closed=1) release notes for details.
 
 ## User Manual
 
@@ -75,7 +75,7 @@ The best approach is to add the plugin as a submodule:
 
 1. Copy the `iso19139.ca.HNAP` folder from `schemas/iso19139.ca.HNAP/src/main/plugin` into geonetwork `WEB-INF/data/config/schema_plugins/`.
 
-2. Copy `schema-iso19139.ca.HNAP` jar from `target` into geonetwork `WEB-INF/libs``.
+2. Copy `schema-iso19139.ca.HNAP` jar from `target` into geonetwork `WEB-INF/libs`.
 
 3. Restart geonetwork
 
@@ -136,14 +136,15 @@ git push
 ```
 ### User Guide Internationalization
 
-Before you start:
-```
-pip install sphinx-intl
-```
-
 Translation workflow:
 
-1. Generate `pot` files, and generate messages for translation:
+1. Before you start:
+
+   ```
+   pip install sphinx-intl
+   ```
+
+2. Generate `pot` files, and generate messages for translation:
    
    ```
    mvn compile -Ptranslate
@@ -155,7 +156,7 @@ Translation workflow:
    sphinx-intl -c src/sphinx/conf.py update -p target/gettext -l fr
    ```
 
-2. Each ``rst`` file has a matching messages ``po`` file in ``src/local/fr/LC_MESSAGES``.
+3. Each ``rst`` file has a matching messages ``po`` file in ``src/local/fr/LC_MESSAGES``.
 
    Message files follow the ``gettext`` portable object ``po`` format:
    
@@ -176,28 +177,87 @@ Translation workflow:
    * https://poedit.net
    * http://transifex.com
 
-3. Optional: translates images, figures and screen snaps:
+4. Optional: translates images, figures and screen snaps:
 
    * ``img/sample.png`` origional, `img/sample_fr.png`` translation.
    * ``figure/example.svg`` origional, ``figure/example_fr.svg`` translation.
 
-5. For more information:
+Transifex workflow (optional):
+
+1. Create an account on transifex: https://www.transifex.com/
+
+   Transifex offers a cloud based editor for internationalization, it is good at
+   suggesting translations by remembering prior translation of similar phrases.
+
+2. Translate content at: https://www.transifex.com/geonetwork/metadata101/
+
+Developers transifex workflow:
+
+1. Before you start: install the transifex command line client:
+
+   ```
+   pip install transifex-client
+   ```
+   
+   And setup your ``~/.transifexrc` using::
+   
+   ```
+   tx init --token API_KEY --no-interactive
+   ```
+   
+   Use https://www.transifex.com/user/settings/api/ to generate the ``API_KEY`` above.
+
+2. Stage the ``en`` docs into ``.tx/config`` for transifex to work with:
+
+   ```
+   tx config mapping-bulk --project metadata101 --file-extension '.pot' --source-file-dir 'target/gettext' --source-lang en --type PO --expression 'src/locale/<lang>/LC_MESSAGES/{filepath}/{filename}.po' --execute
+   ```
+   
+   If you look into ``.tx/config`` you will see each fileis mapped:
+   
+   ```
+   [metadata101.target_gettext_index]
+   file_filter = src/locale/<lang>/LC_MESSAGES/index.po
+   source_file = target/gettext/index.pot
+   source_lang = en
+   type = PO
+   ```
+
+3. Push the changes mapped in ``.tx/config`` to transifex:
+   
+   ```
+   tx push --source
+   ```
+
+4. Pull changes mapped in ``.tx/config`` from transifex:
+   
+   ```
+   tx pull --all
+   ```
+
+For more information:
   
-   * https://www.sphinx-doc.org/en/master/usage/advanced/intl.html
-   * https://www.gnu.org/software/gettext/
-   * https://sphinx-intl.readthedocs.io/en/master/quickstart.html
-   * https://docs.readthedocs.io/en/stable/guides/manage-translations.html
-   * https://docs.transifex.com/integrations/sphinx-doc
+* https://www.sphinx-doc.org/en/master/usage/advanced/intl.html
+* https://www.gnu.org/software/gettext/
+* https://sphinx-intl.readthedocs.io/en/master/quickstart.html
+* https://docs.readthedocs.io/en/stable/guides/manage-translations.html
+* https://docs.transifex.com/integrations/sphinx-doc
 
 ### Release Process
 
-1. Update the ``pom.xml`` version information.
+1. Update the ``pom.xml`` version information for release:
 
    ```
    find . -name `pom.xml` -exec sed -i '' 's/3.10-SNAPSHOT/3.10.7-0/g' {} \;
    ```
+
+2. Update the [src/main/plugin/iso19139.ca.HNAP/schema-ident.xm](src/main/plugin/iso19139.ca.HNAP/schema-ident.xml#L32) ``appMinorVersionSupported``:
+
+   ```
+   sed -i '' 's/3.10-SNAPSHOT/3.10.7-0/g' src/main/plugin/iso19139.ca.HNAP/schema-ident.xml
+   ```
    
-2. Build everything, including documentation:
+4. Build everything, including documentation:
    
    ```
    mvn clean install -Pdocs
@@ -208,7 +268,7 @@ Translation workflow:
    ```
    git add pom.xml
    git commit -am "Version 3.10.7"
-   git tag -a 3.10.6 -m "Release 3.10.7"
+   git tag -a 3.10.7 -m "Release 3.10.7"
    git push origin 3.10.7
    ```
 
@@ -222,11 +282,13 @@ Translation workflow:
 
    * Upload artifacts from ``target`` to the new github page.
 
-5. Restore the `pom.xml` version information.
+5. Restore the `pom.xml` and `schema-ident.xml` version information.
 
    ```
    find . -name `pom.xml` -exec sed -i '' 's/3.10.7-0/3.10-SNAPSHOT/g' {} \;
+   sed -i '' 's/3.10.7-0/3.10-SNAPSHOT/g' src/main/plugin/iso19139.ca.HNAP/schema-ident.xml
    ```
+
 6. Create the next milestone: https://github.com/metadata101/iso19139.ca.HNAP/milestones
    
    * Title: ``3.10.8``
@@ -236,7 +298,7 @@ Translation workflow:
 7. Update ``README.md`` to link to new milestone:
     
    ```
-   For details on this release see [3.10.8 Milestone](https://github.com/metadata101/iso19139.ca.HNAP/milestone/5?closed=1)
+   For details on this release see [3.10.10 Milestone](https://github.com/metadata101/iso19139.ca.HNAP/milestone/9?closed=1)
    release notes for details.
    ```
    

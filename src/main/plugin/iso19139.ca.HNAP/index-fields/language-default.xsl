@@ -267,17 +267,7 @@
           <xsl:variable name="keywordWithNoThesaurus"
                         select="//gmd:MD_Keywords[
                                   not(gmd:thesaurusName) or gmd:thesaurusName/*/gmd:title/gmd:LocalisedCharacterString[@locale = $langId]/text() = '']/
-                                    gmd:keyword//gmd:LocalisedCharacterString[@locale=$langId][*/text() != '']"/>
-          <xsl:if test="count($keywordWithNoThesaurus) > 0">
-            'keywords': [
-            <xsl:for-each select="$keywordWithNoThesaurus/(gco:CharacterString|gmx:Anchor)">
-              {'value': <xsl:value-of select="concat('''', replace(., '''', '\\'''), '''')"/>,
-              'link': '<xsl:value-of select="@xlink:href"/>'}
-              <xsl:if test="position() != last()">,</xsl:if>
-            </xsl:for-each>
-            ]
-            <xsl:if test="//gmd:MD_Keywords[gmd:thesaurusName]">,</xsl:if>
-          </xsl:if>
+                                    gmd:keyword[.//gmd:LocalisedCharacterString[@locale=$langId]/text() != '']"/>
           <xsl:for-each-group select="//gmd:MD_Keywords[
                                         gmd:thesaurusName/*/gmd:title//gmd:LocalisedCharacterString[@locale = $langId]/text() != '' and
                                         count(gmd:keyword//gmd:LocalisedCharacterString[@locale = $langId and text() != '']) > 0]"
@@ -292,6 +282,16 @@
             ]
             <xsl:if test="position() != last()">,</xsl:if>
           </xsl:for-each-group>
+          <xsl:if test="count($keywordWithNoThesaurus) > 0">
+            <xsl:if test="count(//gmd:MD_Keywords[gmd:thesaurusName/*/gmd:title/*/text() != '']) > 0">,</xsl:if>
+            'otherKeywords': [
+            <xsl:for-each select="$keywordWithNoThesaurus//gmd:LocalisedCharacterString[@locale = $langId and text() != '']">
+              {'value': <xsl:value-of select="concat('''', replace(., '''', '\\'''), '''')"/>,
+              'link': '<xsl:value-of select="@xlink:href"/>'}
+              <xsl:if test="position() != last()">,</xsl:if>
+            </xsl:for-each>
+            ]
+          </xsl:if>
           }
         </xsl:variable>
 
@@ -307,7 +307,7 @@
           <Field name="_orgName" string="{string(.)}" store="true" index="true"/>
 
           <xsl:variable name="role"    select="../../../../gmd:role/*/@codeListValue"/>
-          <xsl:variable name="roleTranslation" select="util:getCodelistTranslation('gmd:CI_RoleCode', string($role), string($isoLangId))"/>
+          <xsl:variable name="roleTranslation" select="util:getCodelistTranslation('gmd:CI_RoleCode', string($role), string($langCode_ISO639_2B))"/>
           <xsl:variable name="logo"    select="../../../..//gmx:FileName/@src"/>
           <xsl:variable name="email"   select="../../../../gmd:contactInfo/*/gmd:address/*/gmd:electronicMailAddress/gco:CharacterString"/>
           <xsl:variable name="phone"   select="../../../../gmd:contactInfo/*/gmd:phone/*/gmd:voice[normalize-space(.) != '']/*/text()"/>
@@ -359,13 +359,27 @@
 
       <xsl:choose>
         <xsl:when test="gmd:resourceConstraints/gmd:MD_SecurityConstraints">
+          <xsl:variable name="securityConstraints" select="gmd:resourceConstraints/gmd:MD_SecurityConstraints[1]"/>
+          <xsl:variable name="securityClassification" select="util:getCodelistTranslation($securityConstraints/gmd:classification/gmd:MD_ClassificationCode/name(), string($securityConstraints/gmd:classification/gmd:MD_ClassificationCode/@codeListValue), string($langCode_ISO639_2B))"/>
           <Field name="secConstr" string="true" store="true" index="true"/>
-          <Field name="secUserNote" string="{gmd:resourceConstraints/gmd:MD_SecurityConstraints[1]/gmd:userNote//gmd:LocalisedCharacterString[@locale=$langId]}" store="true" index="true"/>
+          <Field name="secUserNote" string="{$securityConstraints/gmd:userNote//gmd:LocalisedCharacterString[@locale=$langId]}" store="true" index="true"/>
           <!-- put secUserNote in MD_SecurityConstraintsUseLimitation so that it can be displayed on the view page -->
-          <Field name="MD_SecurityConstraintsUseLimitation" string="{gmd:resourceConstraints/gmd:MD_SecurityConstraints[1]/gmd:userNote//gmd:LocalisedCharacterString[@locale=$langId]}" store="true" index="true"/>
+
+          <xsl:variable name="securityConstraintsUseLimitation">
+            <xsl:value-of select="$securityClassification"/>
+            <xsl:choose>
+              <xsl:when test="$securityConstraints/gmd:userNote//gmd:LocalisedCharacterString[@locale=$langId] !='' and $securityConstraints/gmd:userNote//gmd:LocalisedCharacterString[@locale=$langId] != $securityClassification">
+                <xsl:value-of select="concat('; ', $securityConstraints/gmd:userNote//gmd:LocalisedCharacterString[@locale=$langId])"/>
+              </xsl:when>
+            </xsl:choose>
+          </xsl:variable>
+
+          <Field name="MD_SecurityConstraintsUseLimitation" string="{$securityConstraintsUseLimitation}" store="true" index="true"/>
         </xsl:when>
         <xsl:otherwise>
           <Field name="secConstr" string="false" store="true" index="true"/>
+          <xsl:variable name="securityConstraintsUseLimitation" select="if ($isoLangId = 'fra') then 'Inconnu' else 'Unknown'"/>
+          <Field name="MD_SecurityConstraintsUseLimitation" string="{$securityConstraintsUseLimitation}" store="true" index="true"/>
         </xsl:otherwise>
       </xsl:choose>
 
@@ -414,18 +428,24 @@
       <xsl:for-each select="gmd:graphicOverview/gmd:MD_BrowseGraphic">
         <xsl:variable name="fileName" select="gmd:fileName/gco:CharacterString"/>
         <xsl:if test="$fileName != ''">
-          <xsl:variable name="fileDescr" select="gmd:fileDescription/gco:CharacterString"/>
-          <xsl:choose>
-            <xsl:when test="contains($fileName ,'://')">
-              <Field name="image" string="{concat('unknown|', $fileName)}" store="true" index="false"/>
-            </xsl:when>
-            <xsl:when test="string($fileDescr)='thumbnail'">
-              <!-- FIXME : relative path -->
-              <Field name="image"
-                     string="{concat($fileDescr, '|', '../../srv/eng/resources.get?uuid=', //gmd:fileIdentifier/gco:CharacterString, '&amp;fname=', $fileName, '&amp;access=public')}"
-                     store="true" index="false"/>
-            </xsl:when>
-          </xsl:choose>
+
+          <xsl:variable name="thumbnailType" select="if (position() = 1) then 'thumbnail' else 'overview'"/>
+
+          <!-- choose the best language text.  Use the  LocalisedCharacterString (if available) otherwise use the main-language (CharacterString) -->
+          <xsl:variable name="fileDescrMainLang" select="normalize-space(gmd:fileDescription/gco:CharacterString)"/>
+          <xsl:variable name="fileDescrAltLang" select="normalize-space(gmd:fileDescription/gmd:PT_FreeText/gmd:textGroup/gmd:LocalisedCharacterString[@locale=$langId])"/>
+
+          <xsl:variable name="fileDescr">
+            <xsl:choose>
+              <xsl:when test="$fileDescrAltLang"><xsl:value-of select="$fileDescrAltLang"/></xsl:when>
+              <xsl:otherwise><xsl:value-of select="$fileDescrMainLang"/></xsl:otherwise>
+            </xsl:choose>
+          </xsl:variable>
+
+          <Field name="image"
+                 string="{concat($thumbnailType, '|', $fileName, '|', $fileDescr)}"
+                 store="true" index="false"/>
+
         </xsl:if>
       </xsl:for-each>
 
@@ -482,11 +502,20 @@
             select="gmd:contact/*/gmd:organisationName//gmd:LocalisedCharacterString[@locale=$langId]">
       <Field name="metadataPOC" string="{string(.)}" store="false" index="true"/>
 
-      <xsl:variable name="role" select="../../../../gmd:role/*/@codeListValue"/>
-      <xsl:variable name="logo" select="../../../..//gmx:FileName/@src"/>
+      <xsl:variable name="role"    select="../../../../gmd:role/*/@codeListValue"/>
       <xsl:variable name="roleTranslation" select="util:getCodelistTranslation('gmd:CI_RoleCode', string($role), string($langCode_ISO639_2B))"/>
+      <xsl:variable name="logo"    select="../../../..//gmx:FileName/@src"/>
+      <xsl:variable name="email"   select="../../../../gmd:contactInfo/*/gmd:address/*/gmd:electronicMailAddress/gco:CharacterString"/>
+      <xsl:variable name="phone"   select="../../../../gmd:contactInfo/*/gmd:phone/*/gmd:voice[normalize-space(.) != '']/*/text()"/>
+      <xsl:variable name="individualName" select="../../../../gmd:individualName/gco:CharacterString/text()"/>
+      <xsl:variable name="positionName"   select="../../../../gmd:positionName/gco:CharacterString/text()"/>
+      <xsl:variable name="address" select="string-join(../../../../gmd:contactInfo/*/gmd:address/*/(
+                                    gmd:deliveryPoint|gmd:postalCode|gmd:city|
+                                    gmd:administrativeArea|gmd:country)/gco:CharacterString/text(), ', ')"/>
 
-      <Field name="responsibleParty" string="{concat($roleTranslation, '|metadata|', ., '|', $logo)}" store="true" index="false"/>
+      <Field name="responsibleParty"
+             string="{concat($roleTranslation, '|metadata|', ., '|', $logo, '|',  string-join($email, ','), '|', $individualName, '|', $positionName, '|', $address, '|', string-join($phone, ','))}"
+             store="true" index="false"/>
     </xsl:for-each>
 
     <!-- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -->
@@ -510,7 +539,7 @@
         <xsl:variable name="linkage" select="gmd:linkage/gmd:URL"/>
         <xsl:variable name="title" select="normalize-space(gmd:name//gmd:LocalisedCharacterString[@locale=$langId]|gmd:name/gmx:MimeFileType)"/>
         <xsl:variable name="desc" select="normalize-space(gmd:description//gmd:LocalisedCharacterString[@locale=$langId])"/>
-        <xsl:variable name="protocol" select="normalize-space(gmd:protocol//gmd:LocalisedCharacterString[@locale=$langId])"/>
+        <xsl:variable name="protocol" select="normalize-space(gmd:protocol/gco:CharacterString)"/>
         <xsl:variable name="mimetype"
                       select="geonet:protocolMimeType($linkage, $protocol, gmd:name/gmx:MimeFileType/@type)"/>
 
